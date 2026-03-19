@@ -9,6 +9,13 @@ alwaysApply: false
 Base package: `com.prelude.randomz`
 
 ---
+## 0. Before Doing Anything
+
+**Always ask the user first:**
+> "Bạn muốn tui tạo, sửa, xoá endpoint liên quan tới entity nào? (VD: `Player`, `Room`, `Team`)"
+
+- If user specifies entities (e.g., `Player`, `Room`) → **only read those files**.
+- Do **not** scan the entity folder until scope is confirmed.
 
 ## 1. Package Structure
 
@@ -359,11 +366,7 @@ Before submitting any new endpoint, verify:
 
 ## 11. Test Output (Pre-restart Handoff)
 
-After passing the Section 10 checklist and compile check:
-
-```bash
-./mvnw compile -q
-```
+After passing the Section 10 checklist:
 
 - Agent outputs a test plan containing **only the endpoints created or modified in this task**.
 - Output the test to project .cursor/test-output folder, remember to clear to old output

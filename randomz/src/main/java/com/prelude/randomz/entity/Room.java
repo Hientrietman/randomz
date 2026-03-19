@@ -25,6 +25,7 @@ public class Room extends MetaData {
     private GameModeEnum currentMode;
     private Instant startTime;
     private Long duration;
+    private UUID teamId;
 
     public void setRoomStatus (){
         this.status = RoomStatusEnum.NEW;

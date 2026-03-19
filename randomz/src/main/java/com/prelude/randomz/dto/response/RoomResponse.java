@@ -13,5 +13,6 @@ public record RoomResponse(
         RoomStatusEnum status,
         GameModeEnum currentMode,
         Instant startTime,
-        Long duration
+        Long duration,
+        UUID teamId
 ) {}

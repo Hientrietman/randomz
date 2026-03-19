@@ -36,6 +36,9 @@ databaseChangeLog:
                   name: duration
                   type: bigint
               - column:
+                  name: team_id
+                  type: uuid
+              - column:
                   name: created_date
                   type: timestamp
               - column:

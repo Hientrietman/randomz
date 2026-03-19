@@ -16,5 +16,5 @@ public class Team extends MetaData {
     @Id
     private UUID id;
     private String name;
-    private List<UUID> playerId;
+    private UUID playerId;
 }

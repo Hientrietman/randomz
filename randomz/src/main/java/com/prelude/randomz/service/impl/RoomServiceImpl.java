@@ -27,6 +27,7 @@ public class RoomServiceImpl implements RoomService {
                 .description(request.description())
                 .currentMode(request.currentMode())
                 .duration(request.duration())
+                .teamId(request.teamId())
                 .build();
 
         room.setRoomStatus(); // default status for new rooms
@@ -46,7 +47,8 @@ public class RoomServiceImpl implements RoomService {
                 room.getStatus(),
                 room.getCurrentMode(),
                 room.getStartTime(),
-                room.getDuration()
+                room.getDuration(),
+                room.getTeamId()
         );
     }
 }
