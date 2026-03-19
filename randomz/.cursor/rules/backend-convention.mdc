@@ -366,7 +366,7 @@ After passing the Section 10 checklist and compile check:
 ```
 
 - Agent outputs a test plan containing **only the endpoints created or modified in this task**.
-- Output the test to test-output folder, remember to clear to old output
+- Output the test to project .cursor/test-output folder, remember to clear to old output
 Do not include endpoints that were not touched.
 
 ### Test plan format

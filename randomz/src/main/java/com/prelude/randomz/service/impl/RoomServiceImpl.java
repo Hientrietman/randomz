@@ -3,7 +3,6 @@ package com.prelude.randomz.service.impl;
 import com.prelude.randomz.dto.request.RoomRequest;
 import com.prelude.randomz.dto.response.RoomResponse;
 import com.prelude.randomz.entity.Room;
-import com.prelude.randomz.entity.enums.RoomStatusEnum;
 import com.prelude.randomz.repository.RoomRepository;
 import com.prelude.randomz.service.RoomService;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +27,10 @@ public class RoomServiceImpl implements RoomService {
                 .description(request.description())
                 .currentMode(request.currentMode())
                 .duration(request.duration())
-                .status(RoomStatusEnum.NEW)
                 .build();
 
+        room.setRoomStatus(); // default status for new rooms
+        room.setStartTime(Instant.now());
         room.setIsDeleted(false);
         room.setCreatedDate(Instant.now());
 
@@ -50,3 +50,4 @@ public class RoomServiceImpl implements RoomService {
         );
     }
 }
+

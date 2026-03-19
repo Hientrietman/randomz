@@ -6,3 +6,4 @@ import com.prelude.randomz.dto.response.RoomResponse;
 public interface RoomService {
     RoomResponse create(RoomRequest request);
 }
+
