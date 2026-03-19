@@ -1,0 +1,113 @@
+---
+description: Liquibase migration generation from JPA entities. Apply when user asks to create or update Liquibase changelog files based on entity classes.
+globs: src/main/java/com/prelude/randomz/entity/*.java, src/main/resources/db/changelog/**
+alwaysApply: false
+---
+
+# Liquibase Migration Rule (Spring Boot & PostgresSQL)
+
+When asked to create or update migrations, read all entities in `src/main/java/com/prelude/randomz/entity/` and generate Liquibase YAML changelogs based on the current Java state.
+## 0. Entity Scope — Read Before Doing Anything
+
+**Always ask the user first:**
+> "Bạn muốn generate migration cho entity nào? (VD: `Player`, `Room`, `Team` hoặc `all` để gen hết)"
+
+- If user specifies entities (e.g., `Player`, `Room`) → **only read those files**.
+- If user says `all` → read all files in `src/main/java/com/prelude/randomz/entity/`, skip enums and `MetaData`.
+- Do **not** scan the entity folder until scope is confirmed.
+
+## 1. File & Path Conventions
+- **Format**: YAML
+- **Path**: `src/main/resources/db/changelog/changes/`
+- **Naming**: `DDMMYYYY-NNN-description.yaml` (e.g., `19032026-001-create-table-player.yaml`).
+- **Master Changelog**: `src/main/resources/db/changelog/master.yaml`. Always append an `include` entry for every new file created.
+
+## 2. ChangeSet Conventions
+- **Author**: `van.qui`
+- **ID format**: `NNN-NN` (File sequence number + sub-sequence, e.g., `001-01`, `001-02`).
+- **Fail Strategy**: Use `failOnError: true` for all structural changes (createTable, addColumn, modifyDataType).
+- **Rollback**: Every `changeSet` MUST include a valid `rollback` block (e.g., `dropTable` for `createTable`, `dropColumn` for `addColumn`).
+
+## 3. Java-to-PostgreSQL Type Mapping
+
+| Java Type | PostgreSQL Column Type | Constraints / Notes |
+|---|---|---|
+| `UUID` (with `@Id`) | `uuid` | `primaryKey: true` only. No `defaultValueComputed`, no `autoIncrement`. App handles ID generation. |
+| `Long` (with `@Id`) | `bigint` | `primaryKey: true` only. No `autoIncrement`. App handles ID generation. |
+| `String` | `varchar(255)` | Use `@Column(length = N)` value if specified, else default 255 |
+| `Long` (non-ID) | `bigint` | |
+| `Integer` / `int` | `integer` | |
+| `Double` / `Float` | `float8` / `float4` | |
+| `BigDecimal` | `numeric(19,4)` | |
+| `Instant` / `LocalDateTime` | `timestamp` | |
+| `LocalDate` | `date` | |
+| `Boolean` / `boolean` | `boolean` | Include `defaultValueBoolean` if field is initialized in entity |
+| `UUID` (non-ID) | `uuid` | Plain column, no FK constraint inferred |
+| `List<UUID>` | `uuid[]` | PostgreSQL array type, no FK constraint inferred |
+| `byte[]` | `bytea` | |
+| `JsonNode` / `Map` | `jsonb` | |
+| Enum (`EnumType.STRING`) | `varchar(50)` | |
+| Enum (`EnumType.ORDINAL`) | `integer` | ⚠️ Add comment warning: avoid ordinal enums, fragile on reorder |
+
+## 4. Column Naming & Constraints
+
+- **Table name**: `snake_case` of the entity class name (e.g., `Player` → `player`, `GameRoom` → `game_room`).
+- **Column name**:
+  - If field has `@Column(name = "custom_name")` → use `custom_name`.
+  - Otherwise → convert field name to `snake_case` (e.g., `startTime` → `start_time`, `currentMode` → `current_mode`).
+- **Nullable**:
+  - `@Column(nullable = false)` → `constraints: { nullable: false }`.
+  - No annotation → column is nullable by default, omit constraints block.
+- **Unique**:
+  - `@Column(unique = true)` → `constraints: { unique: true, uniqueConstraintName: "uk_{table}_{column}" }`.
+- **`@Column(columnDefinition = "...")`** → use the value as-is for the column `type` field.
+  - e.g., `@Column(columnDefinition = "text")` → `type: text`
+  - e.g., `@Column(columnDefinition = "uuid[]")` → `type: uuid[]`
+  - Ignore all other type mapping rules when `columnDefinition` is present — it takes priority.
+- **`@Column(precision = P, scale = S)`** → override `BigDecimal` default to `numeric(P, S)`.
+  - e.g., `precision = 10, scale = 2` → `type: numeric(10,2)`
+  - If only `precision` is set without `scale` → `numeric(P, 0)`.
+  - If neither is set → fallback to default `numeric(19,4)`.
+
+## 5. Relationship & FK Rules
+
+> ⚠️ This project does NOT use JPA relationship annotations (`@ManyToOne`, `@OneToOne`, `@ManyToMany`, `@OneToMany`).
+> Relationships and foreign keys are managed **entirely via Liquibase**, not inferred from entity fields.
+
+- **Never auto-generate FK constraints** from field names like `playerId`, `roomId`, etc.
+- Fields like `UUID playerId` or `List<UUID> playerId` are plain columns (`uuid` or `uuid[]`). Treat them as data columns only.
+- FK constraints and indexes are added **only when explicitly requested** by the user in a separate migration.
+
+## 6. MetaData Columns (Inherited)
+
+All entities extend `MetaData`. Always append these 7 columns to every `createTable`, after all entity-specific columns:
+
+| Column | Type | Constraints |
+|---|---|---|
+| `created_date` | `timestamp` | |
+| `updated_date` | `timestamp` | |
+| `deleted_date` | `timestamp` | |
+| `created_by` | `varchar(255)` | |
+| `updated_by` | `varchar(255)` | |
+| `deleted_by` | `varchar(255)` | |
+| `is_deleted` | `boolean` | `defaultValueBoolean: false` |
+
+## 7. Mandatory Workflow
+
+1. **Read entities**: Scan all files in `src/main/java/com/prelude/randomz/entity/`. Ignore non-entity classes (e.g., enums, `MetaData` base class itself).
+2. **Read existing changelogs**: Scan `src/main/resources/db/changelog/changes/` to understand what has already been migrated.
+3. **Diff & decide**:
+   - Table does not exist in any changelog → generate `createTable`.
+   - Table exists but has new fields → generate `addColumn`.
+   - Field type changed → generate `modifyDataType` with a ⚠️ comment warning to verify PostgreSQL casting compatibility manually.
+4. **Generate YAML**: One file per logical task. Follow naming and ID conventions.
+5. **Register**: Append the new file path to `master.yaml`. Ensure files are ordered by dependency (referenced tables must appear before tables that depend on them).
+
+## 8. preConditions (Idempotency)
+
+Always add `preConditions` to prevent errors on re-run:
+```yaml
+
+## 9. Execution Phase
+After generating files, suggest the user use the `liquibase_tool` skill:
+> "Tui đã gen xong file, bạn có muốn dùng `liquibase_tool` để `validate`, `migrate` hoặc `drop-migrate` không?"

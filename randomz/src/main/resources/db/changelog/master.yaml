@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/19032026-001-create-table-player.yaml
+  - include:
+      file: db/changelog/changes/19032026-002-create-table-room.yaml
+  - include:
+      file: db/changelog/changes/19032026-003-create-table-team.yaml
