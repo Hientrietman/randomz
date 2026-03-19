@@ -2,13 +2,11 @@ package com.prelude.randomz.entity;
 
 import com.prelude.randomz.entity.enums.GameModeEnum;
 import com.prelude.randomz.entity.enums.RoomStatusEnum;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -16,9 +14,9 @@ import java.time.Instant;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class Room extends MetaData{
+public class Room extends MetaData {
     @Id
-    private Long id;
+    private UUID id;
     private String name;
     private String description;
     @Enumerated(EnumType.STRING)

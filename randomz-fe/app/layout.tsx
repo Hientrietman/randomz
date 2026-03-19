@@ -2,6 +2,7 @@ import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeShortcut } from "@/components/theme-shortcut"
 import { cn } from "@/lib/utils"
 
 const fontSans = Geist({
@@ -37,6 +38,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <ThemeShortcut />
           {children}
         </ThemeProvider>
       </body>

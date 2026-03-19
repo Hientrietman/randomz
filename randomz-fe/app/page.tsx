@@ -1,20 +1,14 @@
-import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/ui/mode-toggle"
+import Navbar from "@/components/web/navbar"
 
 export default function Page() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="text-2xl font-bold">Hello world</h1>
-          <p>
-            This is a simple example of a Next.js page using the new app
-            directory structure.
-          </p>
-          <ModeToggle />
-          <Button className="mt-2">Button</Button>
-        </div>
+    <div className="flex min-h-svh flex-col px-24 py-6">
+      <div className="flex w-full items-center">
+        <Navbar />
+        <ModeToggle className="ml-auto" />
       </div>
+      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose"></div>
     </div>
   )
 }
