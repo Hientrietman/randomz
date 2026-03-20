@@ -1,6 +1,5 @@
 package com.prelude.randomz.dto.response;
 
-import com.prelude.randomz.entity.enums.GameModeEnum;
 import com.prelude.randomz.entity.enums.RoomStatusEnum;
 
 import java.time.Instant;
@@ -11,8 +10,6 @@ public record RoomResponse(
         String name,
         String description,
         RoomStatusEnum status,
-        GameModeEnum currentMode,
         Instant startTime,
-        Long duration,
-        UUID teamId
+        Long duration
 ) {}

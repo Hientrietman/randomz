@@ -1,0 +1,209 @@
+---
+description: API layer conventions — fetch wrapper, endpoint functions, entity types, and env validation. Apply when creating or editing lib/api.ts, lib/endpoints/*, types/api.ts, types/{entity}.ts, or lib/env.ts.
+globs: randomz-fe/lib/**/*.ts, randomz-fe/types/**/*.ts
+alwaysApply: false
+---
+
+# API Layer Conventions
+
+Backend: Spring Boot REST API returning `ApiResponse<T>` at `/api/v1/{entity-plural}`.
+
+---
+
+## 1. Folder Structure
+
+```
+randomz-fe/
+├── lib/
+│   ├── env.ts               # Zod-validated env vars
+│   ├── api.ts               # Fetch wrapper & ApiError
+│   └── endpoints/           # Per-entity API functions
+│       ├── room.ts
+│       └── player.ts
+└── types/
+    ├── api.ts               # ApiResponse<T>, PageResponse<T>
+    └── {entity}.ts          # Per-entity types
+```
+
+---
+
+## 2. Environment Variables
+
+```ts
+// lib/env.ts
+import { z } from "zod"
+
+const envSchema = z.object({
+  NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:8080"),
+})
+
+export const env = envSchema.parse({
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+})
+```
+
+> **Never** dùng `process.env` trực tiếp — luôn import từ `lib/env.ts`.
+
+---
+
+## 3. Shared API Types
+
+```ts
+// types/api.ts
+export type ApiResponse<T> = {
+  status: number
+  message: string
+  data: T
+}
+
+export type PageResponse<T> = {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  size: number
+  number: number
+}
+```
+
+---
+
+## 4. Entity Types
+
+Mirror backend DTOs. Use `type`, not `interface`.
+
+```ts
+// types/room.ts
+export type RoomResponse = {
+  id: number
+  name: string
+  description: string
+  status: RoomStatus
+  currentMode: GameMode
+  startTime: string
+  duration: number
+}
+
+export type RoomRequest = {
+  name: string
+  description?: string
+  currentMode: GameMode
+  duration: number
+}
+
+export type RoomStatus = "WAITING" | "PLAYING" | "FINISHED"
+export type GameMode = "CLASSIC" | "SPEED" | "TEAM"
+```
+
+---
+
+## 5. Fetch Wrapper
+
+```ts
+// lib/api.ts
+import { env } from "@/lib/env"
+import type { ApiResponse } from "@/types/api"
+
+export class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message)
+    this.name = "ApiError"
+  }
+}
+
+type ApiOptions = RequestInit & {
+  token?: string
+  timeoutMs?: number
+}
+
+export async function api<T>(
+  endpoint: string,
+  options?: ApiOptions
+): Promise<ApiResponse<T>> {
+  const { token, timeoutMs = 10000, ...fetchOptions } = options ?? {}
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...fetchOptions.headers,
+      },
+      signal: controller.signal,
+      ...fetchOptions,
+    })
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => null)
+      throw new ApiError(error?.message ?? `Request failed: ${res.status}`, res.status)
+    }
+
+    return res.json()
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    if ((err as Error).name === "AbortError") throw new ApiError("Request timed out", 408)
+    throw new ApiError("Network error", 0)
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+```
+
+---
+
+## 6. Endpoint Functions
+
+```ts
+// lib/endpoints/room.ts
+import { api } from "@/lib/api"
+import type { ApiResponse, PageResponse } from "@/types/api"
+import type { RoomRequest, RoomResponse } from "@/types/room"
+
+export function getRooms(
+  params: { page?: number; size?: number; status?: string } = {},
+  token?: string
+) {
+  const query = new URLSearchParams(
+    Object.entries({ page: "0", size: "20", ...params })
+      .filter(([, v]) => v != null)
+      .map(([k, v]) => [k, String(v)])
+  )
+  return api<PageResponse<RoomResponse>>(`/api/v1/rooms?${query}`, { token })
+}
+
+export function getRoomById(id: number, token?: string) {
+  return api<RoomResponse>(`/api/v1/rooms/${id}`, { token })
+}
+
+export function createRoom(data: RoomRequest, token?: string) {
+  return api<RoomResponse>("/api/v1/rooms", {
+    method: "POST",
+    body: JSON.stringify(data),
+    token,
+  })
+}
+
+export function updateRoom(id: number, data: RoomRequest, token?: string) {
+  return api<RoomResponse>(`/api/v1/rooms/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+    token,
+  })
+}
+
+export function deleteRoom(id: number, token?: string) {
+  return api<null>(`/api/v1/rooms/${id}`, { method: "DELETE", token })
+}
+```
+
+---
+
+## Rules
+
+- **Never** gọi `fetch()` trực tiếp — luôn qua `api()`.
+- **Never** dùng `process.env` trực tiếp — luôn qua `lib/env.ts`.
+- Endpoint functions luôn nhận `token?` và trả về `Promise<ApiResponse<T>>`.
+- Query params dùng `URLSearchParams`, không string interpolation thủ công.
+- Types mirror backend DTOs chính xác — giữ sync khi backend thay đổi.

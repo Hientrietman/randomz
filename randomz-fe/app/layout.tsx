@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeShortcut } from "@/components/theme-shortcut"
 import { cn } from "@/lib/utils"
+import Navbar from "@/components/web/navbar"
 
 const fontSans = Geist({
   subsets: ["latin"],
@@ -31,13 +32,14 @@ export default function RootLayout({
         jetbrainsMono.variable
       )}
     >
-      <body>
+      <body className="px-8">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
+          <Navbar />
           <ThemeShortcut />
           {children}
         </ThemeProvider>

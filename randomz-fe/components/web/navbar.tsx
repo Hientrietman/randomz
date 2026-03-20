@@ -1,30 +1,25 @@
+import Link from "next/link"
+import { ModeToggle } from "../ui/mode-toggle"
+import { buttonVariants } from "../ui/button"
+
 function Navbar() {
   return (
-    <div className="flex items-center gap-4">
-      <h1 className="text-lg font-bold">
-        Random
-        <span className="font-extrabold text-red-600">Z</span>
-      </h1>
-      <nav className="flex gap-4">
-        <a
-          href="#"
-          className="text-sm text-muted-foreground hover:text-primary"
-        >
+    <div className="flex w-full items-center justify-between">
+      <div className="flex gap-6">
+        <Link className={buttonVariants({ variant: "outline" })} href="/">
           Home
-        </a>
-        <a
-          href="#"
-          className="text-sm text-muted-foreground hover:text-primary"
-        >
+        </Link>
+        <Link className={buttonVariants()} href="/room">
           Room
-        </a>
-        <a
-          href="#"
-          className="text-sm text-muted-foreground hover:text-primary"
+        </Link>
+        <Link
+          className={buttonVariants({ variant: "outline" })}
+          href="/how-to-play"
         >
-          <span>How to play</span>
-        </a>
-      </nav>
+          How to Play
+        </Link>
+      </div>
+      <ModeToggle className="flex flex-col items-center gap-2 py-4" />
     </div>
   )
 }

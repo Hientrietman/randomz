@@ -1,0 +1,148 @@
+---
+description: Server-side data conventions — fetching in Server Components, Server Actions for mutations, revalidation, and error boundaries. Apply when creating or editing page.tsx, actions.ts, loading.tsx, or error.tsx files.
+globs: randomz-fe/app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Server Data Conventions (Fetching & Mutations)
+
+---
+
+## 1. File Placement
+
+```
+app/
+└── {route}/
+    ├── page.tsx        # Server Component — reads
+    ├── actions.ts      # Server Actions — writes
+    ├── loading.tsx     # Suspense fallback
+    └── error.tsx       # Error boundary
+```
+
+---
+
+## 2. Data Fetching (Server Components)
+
+Fetch trực tiếp trong Server Component. Lấy token từ `cookies()`.
+
+```tsx
+// app/room/page.tsx
+import { cookies } from "next/headers"
+import { getRooms } from "@/lib/endpoints/room"
+
+export default async function RoomPage() {
+  const token = cookies().get("auth-token")?.value
+  const { data } = await getRooms({}, token)
+
+  return (
+    <main>
+      {data.content.map((room) => (
+        <RoomCard key={room.id} room={room} />
+      ))}
+    </main>
+  )
+}
+```
+
+### Caching
+
+| Option                                   | Khi nào dùng                                 |
+| ---------------------------------------- | -------------------------------------------- |
+| `{ next: { revalidate: 60 } }`           | Data ít thay đổi, chấp nhận stale tối đa 60s |
+| `{ cache: "no-store" }`                  | Data phải luôn fresh                         |
+| `export const dynamic = "force-dynamic"` | Toàn bộ page luôn dynamic                    |
+
+Truyền cache option qua `api()`:
+
+```ts
+getRooms({}, token) // default — Next.js tự quyết định
+api<RoomResponse>("/api/v1/rooms", { next: { revalidate: 60 } })
+api<RoomResponse>("/api/v1/rooms", { cache: "no-store" })
+```
+
+---
+
+## 3. Server Actions (Mutations)
+
+Đặt trong `app/{route}/actions.ts`. Luôn gọi `revalidatePath()` sau mutation.
+
+```ts
+// app/room/actions.ts
+"use server"
+
+import { cookies } from "next/headers"
+import { revalidatePath } from "next/cache"
+import { createRoom, updateRoom, deleteRoom } from "@/lib/endpoints/room"
+import type { RoomRequest } from "@/types/room"
+
+function getToken() {
+  return cookies().get("auth-token")?.value
+}
+
+export async function createRoomAction(data: RoomRequest) {
+  const result = await createRoom(data, getToken())
+  revalidatePath("/room")
+  return result
+}
+
+export async function updateRoomAction(id: number, data: RoomRequest) {
+  const result = await updateRoom(id, data, getToken())
+  revalidatePath("/room")
+  revalidatePath(`/room/${id}`)
+  return result
+}
+
+export async function deleteRoomAction(id: number) {
+  const result = await deleteRoom(id, getToken())
+  revalidatePath("/room")
+  return result
+}
+```
+
+---
+
+## 4. Error Boundary
+
+```tsx
+// app/room/error.tsx
+"use client"
+
+export default function RoomError({
+  error,
+  reset,
+}: {
+  error: Error
+  reset: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center gap-4 p-8">
+      <p className="text-destructive">{error.message}</p>
+      <button onClick={reset}>Thử lại</button>
+    </div>
+  )
+}
+```
+
+> Server Components để lỗi bubble tự nhiên lên `error.tsx` — không cần try/catch trong page.
+
+---
+
+## 5. Loading UI
+
+```tsx
+// app/room/loading.tsx
+export default function RoomLoading() {
+  return <div>Đang tải...</div>
+}
+```
+
+---
+
+## Rules
+
+- **Server Components** cho reads — không dùng `"use client"` chỉ để fetch.
+- **Server Actions** cho writes — đặt trong `actions.ts` cùng route.
+- Token luôn lấy từ `cookies()` trong Server context.
+- `revalidatePath()` bắt buộc sau mỗi mutation.
+- `error.tsx` đặt cạnh `page.tsx` để catch lỗi Server Component.
+- Không try/catch trong Server Component pages — để lỗi bubble lên `error.tsx`.

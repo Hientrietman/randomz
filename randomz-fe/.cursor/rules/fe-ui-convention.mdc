@@ -1,0 +1,445 @@
+---
+description: Frontend UI conventions for creating, styling components, pages, and layouts,... in the Next.js project.
+globs: randomz-fe/**/*.tsx
+alwaysApply: false
+---
+
+# Frontend UI Conventions (Next.js + Tailwind + shadcn/ui)
+
+Tech stack: Next.js 16 (App Router, RSC), React 19, TypeScript (strict), Tailwind CSS v4, shadcn/ui (radix-lyra), Phosphor Icons.
+
+---
+
+## 1. Folder Structure
+
+```
+randomz-fe/
+├── app/                    # App Router pages & layouts
+│   ├── layout.tsx          # Root layout
+│   ├── page.tsx            # Home page
+│   ├── globals.css         # Global styles & Tailwind
+│   └── {route}/
+│       ├── page.tsx        # Route page
+│       ├── layout.tsx      # Route layout (if needed)
+│       ├── loading.tsx     # Suspense fallback
+│       ├── error.tsx       # Error boundary
+│       └── not-found.tsx   # 404 UI
+├── components/
+│   ├── ui/                 # shadcn/ui primitives (do NOT edit manually)
+│   └── web/                # App-specific custom components
+├── hooks/                  # Custom React hooks
+├── lib/                    # Utilities (cn, api helpers, constants)
+└── types/                  # Shared TypeScript types
+```
+
+---
+
+## 2. Server vs Client Components
+
+**Default: Server Component.** Chỉ thêm `"use client"` khi thực sự cần.
+
+| Cần `"use client"`                      | Không cần                    |
+| --------------------------------------- | ---------------------------- |
+| `useState`, `useEffect`, hooks          | Hiển thị data từ props/fetch |
+| Event handlers (`onClick`, `onChange`)  | Conditional rendering        |
+| Browser APIs (`localStorage`, `window`) | Server data fetching         |
+| Third-party client libs                 | Static UI, layouts           |
+
+### Pattern: tách Server/Client
+
+Khi một page cần cả server data lẫn interactivity, tách thành hai file:
+
+```tsx
+// app/room/page.tsx — Server Component (fetch data)
+import { getRooms } from "@/lib/endpoints/room"
+import { RoomList } from "@/components/web/room-list"
+
+export default async function RoomPage() {
+  const { data } = await getRooms()
+  return <RoomList rooms={data.content} />
+}
+```
+
+```tsx
+// components/web/room-list.tsx — Client Component (interactivity)
+"use client"
+
+import type { RoomResponse } from "@/types/room"
+
+export function RoomList({ rooms }: { rooms: RoomResponse[] }) {
+  return (
+    <ul>
+      {rooms.map((room) => (
+        <li key={room.id}>{room.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+> **Rule:** Đẩy `"use client"` xuống thấp nhất có thể trong component tree. Không đặt `"use client"` trên page.tsx chỉ vì một child cần interactivity.
+
+---
+
+## 3. Component Conventions
+
+### File Naming
+
+- Files: **kebab-case** → `room-card.tsx`, `mode-toggle.tsx`
+- Components: **PascalCase** → `RoomCard`, `ModeToggle`
+- Hooks: **camelCase** với `use` prefix → `use-theme-shortcut.ts` (file), `useThemeShortcut` (export)
+
+### Component Authoring
+
+- Dùng **function declarations**, không dùng arrow functions cho components.
+- Default export cho **pages và layouts**. Named export cho **reusable components**.
+
+```tsx
+// ✅ GOOD — reusable component
+export function RoomCard({ room }: RoomCardProps) {
+  return <div className="rounded border p-4">{room.name}</div>
+}
+
+// ✅ GOOD — page
+export default function RoomPage() {
+  return <main>Room</main>
+}
+
+// ❌ BAD — arrow function
+const RoomCard = ({ room }: RoomCardProps) => { ... }
+```
+
+### Props
+
+- Inline props cho component đơn giản (≤ 3 props).
+- Extract `type` cho props phức tạp. Dùng `type`, không dùng `interface`.
+- Nhận `className?: string` trên components có wrapper element.
+
+```tsx
+type RoomCardProps = {
+  room: RoomResponse
+  onJoin: (id: number) => void
+  className?: string
+}
+
+export function RoomCard({ room, onJoin, className }: RoomCardProps) { ... }
+```
+
+---
+
+## 4. Styling
+
+- Luôn dùng Tailwind utility classes. Không CSS modules, không inline `style`.
+- Dùng `cn()` từ `@/lib/utils` để merge conditional classes.
+- Dùng shadcn/ui components từ `@/components/ui/` cho standard UI elements.
+- Dùng `buttonVariants()` khi apply button styles lên non-button elements (e.g., `<Link>`).
+
+```tsx
+import { cn } from "@/lib/utils"
+
+export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn("rounded border bg-card p-4 text-card-foreground", className)}>
+      {children}
+    </div>
+  )
+}
+```
+
+### Theme Colors
+
+Dùng shadcn CSS variable tokens, không dùng raw Tailwind colors:
+
+```tsx
+// ✅ GOOD
+<div className="bg-background text-foreground border-border" />
+<div className="bg-muted text-muted-foreground" />
+<div className="bg-primary text-primary-foreground" />
+
+// ❌ BAD — raw colors phá dark mode
+<div className="bg-white text-black border-gray-200" />
+```
+
+---
+
+## 5. Navigation & Images
+
+### Links — dùng `next/link`
+
+```tsx
+// ✅ GOOD
+import Link from "next/link"
+<Link href="/room/123">Vào phòng</Link>
+
+// ❌ BAD — mất client-side navigation
+<a href="/room/123">Vào phòng</a>
+```
+
+### Images — dùng `next/image`
+
+```tsx
+// ✅ GOOD
+import Image from "next/image"
+<Image src="/avatar.png" alt="Avatar người chơi" width={40} height={40} />
+
+// ❌ BAD — mất optimization
+<img src="/avatar.png" alt="Avatar" />
+```
+
+> `alt` luôn bắt buộc. Nếu ảnh là decorative, dùng `alt=""`.
+
+---
+
+## 6. Pages, Layouts & Special Files
+
+### Pages (`page.tsx`)
+
+```tsx
+export default function RoomPage() {
+  return (
+    <main>
+      <h1 className="text-2xl font-bold">Rooms</h1>
+    </main>
+  )
+}
+```
+
+### Layouts (`layout.tsx`)
+
+```tsx
+export default function RoomLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex gap-6">
+      <aside className="w-64">Sidebar</aside>
+      <main className="flex-1">{children}</main>
+    </div>
+  )
+}
+```
+
+### Loading (`loading.tsx`)
+
+Tự động wrap page trong `<Suspense>`. Dùng skeleton thay vì spinner khi có thể.
+
+```tsx
+export default function RoomLoading() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="h-24 animate-pulse rounded bg-muted" />
+      ))}
+    </div>
+  )
+}
+```
+
+### Error (`error.tsx`)
+
+Bắt buộc là Client Component.
+
+```tsx
+"use client"
+
+export default function RoomError({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-4 p-8">
+      <p className="text-destructive">{error.message}</p>
+      <button onClick={reset} className="text-sm underline">Thử lại</button>
+    </div>
+  )
+}
+```
+
+### Not Found (`not-found.tsx`)
+
+```tsx
+import Link from "next/link"
+
+export default function RoomNotFound() {
+  return (
+    <div className="flex flex-col items-center gap-4 p-8">
+      <p className="text-muted-foreground">Không tìm thấy phòng.</p>
+      <Link href="/room" className="text-sm underline">Quay lại danh sách</Link>
+    </div>
+  )
+}
+```
+
+Trigger bằng cách gọi `notFound()` từ `next/navigation` trong Server Component khi data không tồn tại.
+
+---
+
+## 7. shadcn/ui Usage
+
+- Cài component qua CLI: `pnpm dlx shadcn@latest add <component>`
+- **Không** tự sửa files trong `components/ui/`. Customize bằng `className` hoặc wrapper component trong `components/web/`.
+
+```tsx
+// ✅ GOOD — wrapper trong components/web/
+import { Button } from "@/components/ui/button"
+
+export function JoinButton({ roomId }: { roomId: number }) {
+  return <Button variant="default">Vào phòng</Button>
+}
+```
+
+---
+
+## 8. Icons
+
+Dùng **Phosphor Icons** (`@phosphor-icons/react`) làm primary icon library.
+
+```tsx
+import { GameController, Users } from "@phosphor-icons/react"
+
+<GameController size={20} weight="bold" />
+```
+
+---
+
+## 9. Accessibility
+
+- Dùng semantic HTML: `<main>`, `<nav>`, `<aside>`, `<section>`, `<article>`, `<header>`, `<footer>`.
+- Heading hierarchy đúng thứ tự: `h1` → `h2` → `h3`, không skip cấp.
+- Buttons và links phải có text rõ ràng hoặc `aria-label`.
+- Form inputs phải có `<label>` hoặc `aria-label`.
+- Icon-only buttons bắt buộc có `aria-label`.
+
+```tsx
+// ✅ GOOD
+<button aria-label="Xoá phòng" onClick={handleDelete}>
+  <Trash size={16} />
+</button>
+
+// ❌ BAD — screen reader không đọc được gì
+<button onClick={handleDelete}>
+  <Trash size={16} />
+</button>
+```
+
+---
+
+## 10. Skeleton & Suspense
+
+Dùng `<Suspense>` + skeleton để stream UI từng phần thay vì block cả page chờ data.
+
+### Nguyên tắc
+
+| Dùng `loading.tsx`                    | Dùng `<Suspense>` thủ công                         |
+| ------------------------------------- | -------------------------------------------------- |
+| Toàn bộ page đang load                | Một section trong page load chậm hơn phần còn lại  |
+| Không cần kiểm soát fallback chi tiết | Muốn layout hiển thị ngay, chỉ section đó skeleton |
+
+### Pattern: Suspense cho từng section
+
+```tsx
+// app/room/page.tsx
+import { Suspense } from "react"
+import { RoomListSkeleton } from "@/components/web/room-list-skeleton"
+import { RoomList } from "@/components/web/room-list"
+
+export default function RoomPage() {
+  return (
+    <main>
+      <h1 className="text-2xl font-bold">Phòng chơi</h1>
+
+      {/* Layout render ngay, chỉ list chờ data */}
+      <Suspense fallback={<RoomListSkeleton />}>
+        <RoomList />
+      </Suspense>
+    </main>
+  )
+}
+```
+
+```tsx
+// components/web/room-list.tsx — async Server Component
+import { getRooms } from "@/lib/endpoints/room"
+
+export async function RoomList() {
+  const { data } = await getRooms()
+  return (
+    <ul className="space-y-2">
+      {data.content.map((room) => (
+        <RoomCard key={room.id} room={room} />
+      ))}
+    </ul>
+  )
+}
+```
+
+### Skeleton Component
+
+Skeleton phải khớp với layout của component thật — cùng số item, cùng kích thước.
+
+```tsx
+// components/web/room-list-skeleton.tsx
+export function RoomListSkeleton() {
+  return (
+    <ul className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <li key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
+      ))}
+    </ul>
+  )
+}
+```
+
+### Skeleton primitive tái sử dụng
+
+Nếu dùng shadcn/ui, cài `Skeleton` component và dùng để compose:
+
+```tsx
+// pnpm dlx shadcn@latest add skeleton
+
+import { Skeleton } from "@/components/ui/skeleton"
+
+export function RoomCardSkeleton() {
+  return (
+    <div className="flex items-center gap-4 rounded-lg border p-4">
+      <Skeleton className="h-10 w-10 rounded-full" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+    </div>
+  )
+}
+
+export function RoomListSkeleton() {
+  return (
+    <ul className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <RoomCardSkeleton key={i} />
+      ))}
+    </ul>
+  )
+}
+```
+
+### Rules
+
+- Mỗi async Server Component fetch data nên có skeleton tương ứng.
+- Skeleton file đặt cùng thư mục với component thật: `room-list.tsx` → `room-list-skeleton.tsx`.
+- Không dùng spinner cho content load — dùng skeleton. Spinner chỉ dùng cho actions (submit, delete).
+- `loading.tsx` dùng skeleton, không dùng spinner.
+
+---
+
+## 11. Checklist
+
+- [ ] File kebab-case, component PascalCase
+- [ ] `"use client"` chỉ thêm khi thực sự cần — đẩy xuống thấp nhất trong tree
+- [ ] Styling dùng Tailwind + `cn()` — không inline style, không CSS modules
+- [ ] Theme-aware colors (`bg-background`, `text-foreground`) — không raw colors
+- [ ] Props nhận `className?` cho wrapper elements
+- [ ] Dùng `next/link` thay `<a>`, `next/image` thay `<img>`
+- [ ] `loading.tsx` và `error.tsx` đặt cạnh `page.tsx`
+- [ ] Async Server Component fetch data có skeleton tương ứng
+- [ ] Dùng `<Suspense>` cho section load chậm, không block cả page
+- [ ] Skeleton khớp layout với component thật (số item, kích thước)
+- [ ] Spinner chỉ dùng cho actions, không dùng cho content load
+- [ ] `alt` bắt buộc trên mọi `<Image>`
+- [ ] Icon-only buttons có `aria-label`
+- [ ] shadcn/ui components không bị edit trực tiếp
+- [ ] Pages/layouts dùng default export, reusable components dùng named export

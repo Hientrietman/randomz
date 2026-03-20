@@ -1,14 +1,13 @@
 package com.prelude.randomz.dto.request;
 
-import com.prelude.randomz.entity.enums.GameModeEnum;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
-import java.util.UUID;
+import java.time.Instant;
 
 public record RoomRequest(
         @NotBlank String name,
         String description,
-        GameModeEnum currentMode,
-        Long duration,
-        UUID teamId
+        @NotNull Instant startTime,
+        @NotNull Long duration
 ) {}

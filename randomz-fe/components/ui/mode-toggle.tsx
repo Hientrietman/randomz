@@ -17,7 +17,7 @@ export function ModeToggle({ className }: { className?: string }) {
   const { setTheme } = useTheme()
 
   return (
-    <div className={cn("flex flex-col items-center gap-2", className)}>
+    <div className={cn("", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon">

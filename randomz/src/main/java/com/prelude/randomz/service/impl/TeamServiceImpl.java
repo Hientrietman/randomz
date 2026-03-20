@@ -23,7 +23,6 @@ public class TeamServiceImpl implements TeamService {
         Team team = Team.builder()
                 .id(UUID.randomUUID())
                 .name(request.name())
-                .playerId(request.playerId())
                 .build();
 
         team.setIsDeleted(false);
@@ -36,8 +35,7 @@ public class TeamServiceImpl implements TeamService {
     private TeamResponse toResponse(Team team) {
         return new TeamResponse(
                 team.getId(),
-                team.getName(),
-                team.getPlayerId()
+                team.getName()
         );
     }
 }

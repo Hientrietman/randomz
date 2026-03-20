@@ -9,8 +9,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
 import java.time.Instant;
 import java.util.UUID;
+
 
 @Service
 @RequiredArgsConstructor
@@ -25,18 +30,24 @@ public class RoomServiceImpl implements RoomService {
                 .id(UUID.randomUUID())
                 .name(request.name())
                 .description(request.description())
-                .currentMode(request.currentMode())
+                .startTime(request.startTime())
                 .duration(request.duration())
-                .teamId(request.teamId())
                 .build();
 
-        room.setRoomStatus(); // default status for new rooms
-        room.setStartTime(Instant.now());
+        room.setRoomStatus();
         room.setIsDeleted(false);
         room.setCreatedDate(Instant.now());
 
         Room saved = roomRepository.save(room);
         return toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RoomResponse> getAll(int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdDate"));
+        return roomRepository.findByIsDeletedFalse(pageRequest)
+                .map(this::toResponse);
     }
 
     private RoomResponse toResponse(Room room) {
@@ -45,10 +56,8 @@ public class RoomServiceImpl implements RoomService {
                 room.getName(),
                 room.getDescription(),
                 room.getStatus(),
-                room.getCurrentMode(),
                 room.getStartTime(),
-                room.getDuration(),
-                room.getTeamId()
+                room.getDuration()
         );
     }
 }
